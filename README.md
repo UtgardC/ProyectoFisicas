@@ -3,6 +3,7 @@
 Simulador de carga de chatarra con Articulation Body. La maniobra consiste en recoger las piezas metálicas y depositarlas en la zona de descarga.
 
 Abrir `Assets/Scenes/PatioDeChatarra.unity` y pulsar Play.
+Para generar WebGL: `Grúa > Generar build WebGL`.
 
 - Unity: **6000.4.6f1**. La consigna solicita 6.3 LTS; migración pendiente antes de entregar.
 - [Build WebGL](ITCH_URL)

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#131b23">
+    <title>{{{ PRODUCT_NAME }}}</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #131b23; }
+      body { font-family: system-ui, -apple-system, sans-serif; color: #e9edef; }
+      #unity-container { position: fixed; inset: 0; }
+      #unity-canvas { display: block; width: 100%; height: 100%; background: #131b23; outline: none; touch-action: none; }
+      #unity-loading { position: absolute; inset: 0; display: grid; place-content: center; gap: 20px; background: #131b23; text-align: center; }
+      #unity-loading h1 { margin: 0; font-size: clamp(20px, 3vw, 30px); font-weight: 600; letter-spacing: -.03em; }
+      #unity-progress { width: min(280px, 70vw); height: 3px; overflow: hidden; border-radius: 3px; background: #33404b; }
+      #unity-progress-fill { width: 0; height: 100%; background: #ffb64f; transition: width .15s linear; }
+      #unity-warning { display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: min(650px, 90%); max-height: 70%; overflow: auto; padding: 16px 20px; background: #202d39; color: #f4c797; border-left: 3px solid #ffb64f; font-size: 14px; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <main id="unity-container">
+      <canvas id="unity-canvas" width="{{{ WIDTH }}}" height="{{{ HEIGHT }}}" tabindex="0" aria-label="{{{ PRODUCT_NAME }}}"></canvas>
+      <div id="unity-loading" aria-busy="true">
+        <h1>{{{ PRODUCT_NAME }}}</h1>
+        <div id="unity-progress" role="progressbar" aria-label="Carga" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="unity-progress-fill"></div></div>
+      </div>
+      <div id="unity-warning" role="alert"></div>
+    </main>
+    <script>
+      var canvas = document.getElementById("unity-canvas");
+      var loading = document.getElementById("unity-loading");
+      var progressBar = document.getElementById("unity-progress");
+      var progressFill = document.getElementById("unity-progress-fill");
+      var warning = document.getElementById("unity-warning");
+
+      function resizeCanvas() {
+        canvas.style.width = window.innerWidth + "px";
+        canvas.style.height = window.innerHeight + "px";
+      }
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+
+      function unityShowBanner(message, type) {
+        if (type !== "error") { console.warn(message); return; }
+        warning.textContent = message;
+        warning.style.display = "block";
+      }
+
+      var buildUrl = "Build";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_THREADS
+        workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}",
+#endif
+#if USE_WASM
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        matchWebGLToCanvasSize: true,
+        showBanner: unityShowBanner
+      };
+      var script = document.createElement("script");
+      script.src = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      script.onerror = function () { unityShowBanner("No se pudo cargar el simulador.", "error"); };
+      script.onload = function () {
+        createUnityInstance(canvas, config, function (progress) {
+          var percent = Math.round(progress * 100);
+          progressFill.style.width = percent + "%";
+          progressBar.setAttribute("aria-valuenow", percent);
+        }).then(function (unityInstance) {
+          loading.style.display = "none";
+          loading.setAttribute("aria-busy", "false");
+          canvas.focus();
+        }).catch(function (message) { unityShowBanner(message, "error"); });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>

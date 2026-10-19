@@ -24,7 +24,7 @@ namespace ScrapCrane.Editor
 
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
             PlayerSettings.WebGL.decompressionFallback = false;
-            PlayerSettings.WebGL.template = "APPLICATION:Default";
+            PlayerSettings.WebGL.template = "PROJECT:Patio";
             PlayerSettings.defaultWebScreenWidth = 1600;
             PlayerSettings.defaultWebScreenHeight = 900;
             PlayerSettings.resizableWindow = true;

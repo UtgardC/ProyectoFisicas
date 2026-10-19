@@ -24,7 +24,8 @@ namespace ScrapCrane
             field.loop = true;
             field.positionCount = 64;
             field.widthMultiplier = .025f;
-            field.material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            field.sharedMaterial = magnetBody.GetComponentInChildren<Renderer>().sharedMaterial;
+            field.generateLightingData = true;
             field.material.color = new Color(1f, .63f, .18f);
             for (int i = 0; i < 64; i++)
             {
