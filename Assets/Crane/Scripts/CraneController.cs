@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 
 namespace ScrapCrane
 {
-    // Only the drives move the crane. Targets are rate-limited in the physics step.
+    // Both control modes move the same physical drives, in the physics step.
     public sealed class CraneController : MonoBehaviour
     {
         public ArticulationBody root, yaw, boom, elbow, extension;
@@ -19,9 +19,11 @@ namespace ScrapCrane
         public float Power { get; set; } = 1f;
         public bool DrivesEnabled { get; set; } = true;
         public ArticulationBody[] Joints { get; private set; }
+        public bool OperatorMode { get; private set; }
         readonly float[] speeds = { 18f, 12f, 18f, .65f };
         ArticulationDrive[] initialDrives;
         float[] commanded;
+        Vector4 operatorInput;
 
         void Awake()
         {
@@ -63,8 +65,19 @@ namespace ScrapCrane
             for (int i = 0; i < Joints.Length; i++)
             {
                 var drive = Joints[i].xDrive;
-                Targets[i] = Mathf.Clamp(Targets[i], drive.lowerLimit, drive.upperLimit);
-                commanded[i] = Mathf.MoveTowards(commanded[i], Targets[i], speeds[i] * Time.fixedDeltaTime);
+                if (OperatorMode)
+                {
+                    // A centered lever holds the last drive target: there is no queued destination.
+                    if (DrivesEnabled)
+                        commanded[i] += operatorInput[i] * speeds[i] * Time.fixedDeltaTime;
+                    commanded[i] = Mathf.Clamp(commanded[i], drive.lowerLimit, drive.upperLimit);
+                    Targets[i] = commanded[i];
+                }
+                else
+                {
+                    Targets[i] = Mathf.Clamp(Targets[i], drive.lowerLimit, drive.upperLimit);
+                    commanded[i] = Mathf.MoveTowards(commanded[i], Targets[i], speeds[i] * Time.fixedDeltaTime);
+                }
                 drive.target = commanded[i];
                 drive.stiffness = DrivesEnabled ? initialDrives[i].stiffness : 0f;
                 drive.damping = DrivesEnabled ? initialDrives[i].damping : 0f;
@@ -72,6 +85,33 @@ namespace ScrapCrane
                 Joints[i].xDrive = drive;
             }
         }
+
+        public void SetOperatorMode(bool enabled)
+        {
+            if (OperatorMode == enabled) return;
+            OperatorMode = enabled;
+            StopOperatorInput();
+            // Cancel pending study-mode movement without changing the current drive command.
+            if (Joints == null) return;
+            for (int i = 0; i < Joints.Length; i++)
+                Targets[i] = commanded[i] = Joints[i].xDrive.target;
+        }
+
+        public void SetOperatorInput(Vector2 rotationAndBoom, float elbowInput, float extensionInput)
+        {
+            if (!OperatorMode || !DrivesEnabled) { StopOperatorInput(); return; }
+            operatorInput = new Vector4(
+                Mathf.Clamp(rotationAndBoom.x, -1f, 1f),
+                -Mathf.Clamp(rotationAndBoom.y, -1f, 1f),
+                Mathf.Clamp(elbowInput, -1f, 1f),
+                Mathf.Clamp(extensionInput, -1f, 1f));
+        }
+
+        public void StopOperatorInput() => operatorInput = Vector4.zero;
+
+        void OnDisable() => StopOperatorInput();
+        void OnApplicationFocus(bool focused) { if (!focused) StopOperatorInput(); }
+        void OnApplicationPause(bool paused) { if (paused) StopOperatorInput(); }
 
         public float Actual(int i)
         {

@@ -161,6 +161,7 @@ namespace ScrapCrane.Editor
             mesh.fontSize = 48;
             mesh.characterSize = size;
             mesh.color = color;
+            go.AddComponent<WorldTextDepth>();
         }
 
         static void BuildYard()

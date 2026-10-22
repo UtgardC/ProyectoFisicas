@@ -12,10 +12,14 @@ namespace ScrapCrane
         static readonly Color Muted = new Color(.61f, .69f, .74f);
         static readonly Color Orange = new Color(1f, .67f, .24f);
         static readonly Color Mint = new Color(.4f, .89f, .76f);
-        GUIStyle title, small, label, value, number, button, track, thumb, micro, subtitle;
+        GUIStyle title, small, label, value, number, button, track, thumb, micro, subtitle, centered;
         readonly string[] input = new string[4];
-        Texture2D white;
+        Texture2D white, disc;
         static bool settings;
+        Vector2 leftStick, rightStick;
+        float extensionHeld;
+        int operatorHotControl;
+        bool releaseCapture;
 
         static float Scale => Mathf.Min(Screen.width / 1600f, Screen.height / 900f);
         public static bool PointerOverControls()
@@ -36,6 +40,38 @@ namespace ScrapCrane
 
         static string Format(float n) => n.ToString("0.0", CultureInfo.InvariantCulture);
 
+        void Update()
+        {
+            if (crane == null) return;
+            bool pressed = (Mouse.current != null && Mouse.current.leftButton.isPressed) ||
+                           (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed);
+            if (!crane.OperatorMode || !crane.DrivesEnabled || !Application.isFocused || !pressed)
+            {
+                CancelOperatorControls();
+                return;
+            }
+            crane.SetOperatorInput(DeadZone(leftStick), DeadZone(rightStick).y, extensionHeld);
+        }
+
+        static Vector2 DeadZone(Vector2 input)
+        {
+            const float threshold = .12f;
+            float magnitude = input.magnitude;
+            return magnitude <= threshold ? Vector2.zero : input.normalized * Mathf.Clamp01((magnitude - threshold) / (1f - threshold));
+        }
+
+        void CancelOperatorControls()
+        {
+            leftStick = rightStick = Vector2.zero;
+            extensionHeld = 0f;
+            releaseCapture |= operatorHotControl != 0;
+            if (crane != null) crane.StopOperatorInput();
+        }
+
+        void OnDisable() { CancelOperatorControls(); EditingNumber = false; }
+        void OnApplicationFocus(bool focused) { if (!focused) CancelOperatorControls(); }
+        void OnApplicationPause(bool paused) { if (paused) CancelOperatorControls(); }
+
         void InitStyles()
         {
             white = Texture2D.whiteTexture;
@@ -44,6 +80,8 @@ namespace ScrapCrane
             title = new GUIStyle(label) { fontSize = 34, fontStyle = FontStyle.Bold };
             subtitle = new GUIStyle(label) { fontSize = 15, normal = { textColor = Muted } };
             small = new GUIStyle(label) { fontSize = 13, normal = { textColor = Muted } };
+            centered = new GUIStyle(label) { fontSize = 14, alignment = TextAnchor.MiddleCenter };
+            disc = MakeDisc();
             micro = new GUIStyle(small) { fontSize = 11 };
             value = new GUIStyle(label) { fontSize = 18, alignment = TextAnchor.MiddleRight, normal = { textColor = Mint } };
             number = new GUIStyle(GUI.skin.textField) { font = font, fontSize = 16, alignment = TextAnchor.MiddleRight, padding = new RectOffset(7, 9, 4, 4) };
@@ -70,6 +108,23 @@ namespace ScrapCrane
             return texture;
         }
 
+        static Texture2D MakeDisc()
+        {
+            const int size = 128;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+            var pixels = new Color[size * size];
+            var center = Vector2.one * (size - 1) * .5f;
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                    pixels[y * size + x] = new Color(1f, 1f, 1f,
+                        Mathf.Clamp01(size * .5f - Vector2.Distance(new Vector2(x, y), center)));
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return texture;
+        }
+
         void Box(Rect rect, Color color)
         {
             GUI.color = color;
@@ -81,6 +136,13 @@ namespace ScrapCrane
         {
             if (crane == null || crane.Targets == null) return;
             if (label == null) InitStyles();
+            if (Event.current.type == EventType.MouseLeaveWindow) CancelOperatorControls();
+            if (releaseCapture)
+            {
+                if (GUIUtility.hotControl == operatorHotControl) GUIUtility.hotControl = 0;
+                operatorHotControl = 0;
+                releaseCapture = false;
+            }
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, Vector3.one * Scale);
             float right = Screen.width / Scale;
             float bottom = Screen.height / Scale;
@@ -98,14 +160,25 @@ namespace ScrapCrane
             Box(new Rect(rx, 99, 250, 4), new Color(.23f, .3f, .34f));
             Box(new Rect(rx, 99, 250f * done / Mathf.Max(1, total), 4), Mint);
 
-            Box(new Rect(28, 146, 306, 486), Ink);
-            GUI.Label(new Rect(48, 166, 170, 24), "MANDOS", small);
-            GUI.Label(new Rect(243, 166, 70, 24), "REAL", small);
-            for (int i = 0; i < 4; i++) Axis(i, 209 + i * 86);
-            Box(new Rect(48, 554, 266, 1), new Color(.25f, .31f, .35f));
+            if (GUI.Button(new Rect(28, 146, 306, 42), crane.OperatorMode ? "Volver al modo de estudio" : "Controlar como Operador", button))
+            {
+                CancelOperatorControls();
+                GUI.FocusControl(null);
+                EditingNumber = false;
+                crane.SetOperatorMode(!crane.OperatorMode);
+            }
+            Box(new Rect(28, 202, 306, 430), Ink);
+            if (crane.OperatorMode) OperatorControls();
+            else
+            {
+                GUI.Label(new Rect(48, 220, 170, 24), "MANDOS", small);
+                GUI.Label(new Rect(243, 220, 70, 24), "REAL", small);
+                for (int i = 0; i < 4; i++) Axis(i, 257 + i * 78);
+            }
+            Box(new Rect(48, 580, 266, 1), new Color(.25f, .31f, .35f));
             string status = crane.magnet.AttachedLoad != null ? "RETENIDA  ·  " + crane.magnet.CarriedMass.ToString("0") + " kg" :
                             crane.magnet.IsOn ? "CAMPO ACTIVO" : "IMÁN APAGADO";
-            GUI.Label(new Rect(48, 574, 265, 28), status, new GUIStyle(small) { normal = { textColor = crane.magnet.IsOn ? Orange : Muted } });
+            GUI.Label(new Rect(48, 596, 265, 28), status, new GUIStyle(small) { normal = { textColor = crane.magnet.IsOn ? Orange : Muted } });
 
             GUI.backgroundColor = crane.magnet.IsOn ? Orange : Color.white;
             if (GUI.Button(new Rect(28, 644, 306, 48), crane.magnet.IsOn ? "SOLTAR CARGA   [ ESPACIO ]" : "ACTIVAR IMÁN   [ ESPACIO ]", button))
@@ -141,6 +214,104 @@ namespace ScrapCrane
                 GUI.Label(new Rect(cx + 22, 205, 380, 24), crane.deliveryZone.DeliveredMass.ToString("0") + " kg recuperados", small);
             }
             EditingNumber = GUI.GetNameOfFocusedControl().StartsWith("target_");
+        }
+
+        void OperatorControls()
+        {
+            GUI.Label(new Rect(48, 220, 266, 24), "PUESTO DE OPERADOR", small);
+            GUI.Label(new Rect(48, 257, 154, 24), "GIRO / PLUMA", centered);
+            GUI.Label(new Rect(214, 257, 100, 24), "BRAZO", centered);
+            GUI.Label(new Rect(73, 282, 100, 24), "Subir", centered);
+            GUI.Label(new Rect(214, 282, 100, 24), "Plegar", centered);
+            bool wasEnabled = GUI.enabled;
+            GUI.enabled = wasEnabled && crane.DrivesEnabled;
+            leftStick = Joystick(new Vector2(124, 365), 60, leftStick, false);
+            rightStick = Joystick(new Vector2(264, 365), 42, rightStick, true);
+            GUI.Label(new Rect(41, 350, 22, 28), "←", centered);
+            GUI.Label(new Rect(185, 350, 22, 28), "→", centered);
+            GUI.Label(new Rect(73, 433, 100, 24), "Bajar", centered);
+            GUI.Label(new Rect(214, 433, 100, 24), "Estirar", centered);
+            GUI.Label(new Rect(48, 473, 266, 24), "TELESCÓPICO", small);
+            MomentaryButton(new Rect(48, 506, 128, 44), "Retraer", -1f);
+            MomentaryButton(new Rect(186, 506, 128, 44), "Extender", 1f);
+            GUI.enabled = wasEnabled;
+        }
+
+        Vector2 Joystick(Vector2 center, float radius, Vector2 input, bool verticalOnly)
+        {
+            var area = new Rect(center.x - radius, center.y - radius, radius * 2, radius * 2);
+            int id = GUIUtility.GetControlID(FocusType.Passive, area);
+            var evt = Event.current;
+            EventType type = evt.GetTypeForControl(id);
+            if (GUI.enabled && type == EventType.MouseDown && evt.button == 0 &&
+                (evt.mousePosition - center).sqrMagnitude <= radius * radius && GUIUtility.hotControl == 0)
+            {
+                GUIUtility.hotControl = operatorHotControl = id;
+                input = StickPosition(evt.mousePosition, center, radius, verticalOnly);
+                evt.Use();
+            }
+            else if (type == EventType.MouseDrag && GUIUtility.hotControl == id)
+            {
+                input = StickPosition(evt.mousePosition, center, radius, verticalOnly);
+                evt.Use();
+            }
+            else if (type == EventType.MouseUp && evt.button == 0 && GUIUtility.hotControl == id)
+            {
+                GUIUtility.hotControl = operatorHotControl = 0;
+                CancelOperatorControls();
+                input = Vector2.zero;
+                evt.Use();
+            }
+            Disc(center, radius + 2f, new Color(.31f, .39f, .43f));
+            Disc(center, radius, new Color(.12f, .17f, .22f));
+            Box(new Rect(center.x - 1, center.y - radius + 12, 2, radius * 2 - 24), new Color(.27f, .34f, .38f));
+            if (!verticalOnly)
+                Box(new Rect(center.x - radius + 12, center.y - 1, radius * 2 - 24, 2), new Color(.27f, .34f, .38f));
+            Disc(center, 9f, new Color(.3f, .37f, .4f));
+            var knob = center + new Vector2(input.x, -input.y) * (radius - 15f);
+            Disc(knob, 16f, GUI.enabled ? Orange : Muted);
+            return input;
+        }
+
+        static Vector2 StickPosition(Vector2 pointer, Vector2 center, float radius, bool verticalOnly)
+        {
+            var offset = new Vector2(pointer.x - center.x, center.y - pointer.y) / (radius - 15f);
+            if (verticalOnly) offset.x = 0f;
+            return Vector2.ClampMagnitude(offset, 1f);
+        }
+
+        void Disc(Vector2 center, float radius, Color color)
+        {
+            GUI.color = color;
+            GUI.DrawTexture(new Rect(center.x - radius, center.y - radius, radius * 2, radius * 2), disc);
+            GUI.color = Color.white;
+        }
+
+        void MomentaryButton(Rect area, string text, float direction)
+        {
+            int id = GUIUtility.GetControlID(FocusType.Passive, area);
+            var evt = Event.current;
+            EventType type = evt.GetTypeForControl(id);
+            if (GUI.enabled && type == EventType.MouseDown && evt.button == 0 && area.Contains(evt.mousePosition) && GUIUtility.hotControl == 0)
+            {
+                GUIUtility.hotControl = operatorHotControl = id;
+                extensionHeld = direction;
+                evt.Use();
+            }
+            else if (type == EventType.MouseDrag && GUIUtility.hotControl == id)
+            {
+                extensionHeld = area.Contains(evt.mousePosition) ? direction : 0f;
+                evt.Use();
+            }
+            else if (type == EventType.MouseUp && evt.button == 0 && GUIUtility.hotControl == id)
+            {
+                GUIUtility.hotControl = operatorHotControl = 0;
+                CancelOperatorControls();
+                evt.Use();
+            }
+            bool held = GUIUtility.hotControl == id && extensionHeld == direction;
+            Box(area, held ? new Color(.48f, .34f, .16f) : new Color(.19f, .25f, .3f));
+            GUI.Label(area, text, centered);
         }
 
         void Axis(int i, float y)
