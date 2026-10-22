@@ -10,6 +10,7 @@ namespace ScrapCrane
         [Min(.1f), InspectorName("Distancia mínima")] public float minimumDistance = 9f;
         [Min(.1f), InspectorName("Distancia máxima")] public float maximumDistance = 28f;
         float yaw, pitch, distance;
+        bool dragging;
         void Start()
         {
             Vector3 offset = transform.position - target.position;
@@ -20,9 +21,13 @@ namespace ScrapCrane
         void LateUpdate()
         {
             var mouse = Mouse.current;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+                dragging = !CraneHUD.PointerOverControls() && Application.isFocused;
+            if (mouse == null || !mouse.leftButton.isPressed || !Application.isFocused)
+                dragging = false;
             if (mouse != null && !CraneHUD.PointerOverControls())
             {
-                if (mouse.rightButton.isPressed)
+                if (dragging)
                 {
                     Vector2 delta = mouse.delta.ReadValue();
                     yaw += delta.x * .2f;
@@ -37,5 +42,6 @@ namespace ScrapCrane
                 Mathf.Cos(yaw * Mathf.Deg2Rad) * Mathf.Cos(pitch * Mathf.Deg2Rad)) * distance;
             transform.LookAt(target.position);
         }
+        void OnApplicationFocus(bool focused) { if (!focused) dragging = false; }
     }
 }

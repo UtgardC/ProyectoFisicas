@@ -198,7 +198,7 @@ namespace ScrapCrane
             }
 
             Box(new Rect(28, bottom - 52, right - 56, 30), new Color(.045f, .07f, .095f, .8f));
-            GUI.Label(new Rect(43, bottom - 46, 650, 22), "CÁMARA   Arrastrar con botón derecho  /  Rueda para zoom", small);
+            GUI.Label(new Rect(43, bottom - 46, 650, 22), "CÁMARA   Arrastrar con botón izquierdo  /  Rueda para zoom", small);
             GUI.Label(new Rect(right - 400, bottom - 46, 350, 22), "8 CUERPOS   ·   4 DRIVES   ·   1 m = 1 UNIDAD", micro);
 
             if (!crane.DrivesEnabled)
