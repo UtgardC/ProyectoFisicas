@@ -12,7 +12,7 @@ namespace ScrapCrane
         static readonly Color Muted = new Color(.61f, .69f, .74f);
         static readonly Color Orange = new Color(1f, .67f, .24f);
         static readonly Color Mint = new Color(.4f, .89f, .76f);
-        GUIStyle title, small, label, value, number, button, track, thumb, micro, subtitle, centered;
+        GUIStyle title, small, label, value, number, button, track, thumb, micro, centered;
         readonly string[] input = new string[4];
         Texture2D white, disc;
         static bool settings;
@@ -78,7 +78,6 @@ namespace ScrapCrane
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             label = new GUIStyle(GUI.skin.label) { font = font, fontSize = 18, normal = { textColor = Color.white }, padding = new RectOffset(0, 0, 0, 0) };
             title = new GUIStyle(label) { fontSize = 34, fontStyle = FontStyle.Bold };
-            subtitle = new GUIStyle(label) { fontSize = 15, normal = { textColor = Muted } };
             small = new GUIStyle(label) { fontSize = 13, normal = { textColor = Muted } };
             centered = new GUIStyle(label) { fontSize = 14, alignment = TextAnchor.MiddleCenter };
             disc = MakeDisc();
@@ -95,15 +94,21 @@ namespace ScrapCrane
             button.active.background = MakeTexture(new Color(.32f, .39f, .43f));
             button.normal.textColor = button.hover.textColor = button.active.textColor = Color.white;
             track = new GUIStyle(GUI.skin.horizontalSlider) { fixedHeight = 4, margin = new RectOffset(0, 0, 10, 0) };
-            track.normal.background = MakeTexture(new Color(.3f, .36f, .4f));
+            track.normal.background = MakeTexture(new Color(.3f, .36f, .4f), preserveColor: true);
             thumb = new GUIStyle(GUI.skin.horizontalSliderThumb) { fixedWidth = 13, fixedHeight = 20, margin = new RectOffset(0, 0, -8, 0) };
-            thumb.normal.background = thumb.hover.background = thumb.active.background = MakeTexture(Orange);
+            thumb.normal.background = thumb.hover.background = thumb.active.background = MakeTexture(Orange, preserveColor: true);
         }
 
-        static Texture2D MakeTexture(Color color)
+        static Color NeutralBackground(Color color)
+        {
+            Color.RGBToHSV(color, out _, out _, out float brightness);
+            return new Color(brightness, brightness, brightness, color.a);
+        }
+
+        static Texture2D MakeTexture(Color color, bool preserveColor = false)
         {
             var texture = new Texture2D(1, 1);
-            texture.SetPixel(0, 0, color);
+            texture.SetPixel(0, 0, preserveColor ? color : NeutralBackground(color));
             texture.Apply();
             return texture;
         }
@@ -125,9 +130,9 @@ namespace ScrapCrane
             return texture;
         }
 
-        void Box(Rect rect, Color color)
+        void Box(Rect rect, Color color, bool preserveColor = false)
         {
-            GUI.color = color;
+            GUI.color = preserveColor ? color : NeutralBackground(color);
             GUI.DrawTexture(rect, white);
             GUI.color = Color.white;
         }
@@ -147,10 +152,7 @@ namespace ScrapCrane
             float right = Screen.width / Scale;
             float bottom = Screen.height / Scale;
             Box(new Rect(0, 0, right, 126), new Color(.045f, .07f, .095f, .92f));
-            Box(new Rect(28, 29, 4, 58), Orange);
-            GUI.Label(new Rect(48, 25, 700, 22), "OPERACIÓN 01   /   PATIO DE CHATARRA", small);
             GUI.Label(new Rect(47, 49, 750, 46), "Grúa electromagnética", title);
-            GUI.Label(new Rect(48, 99, 750, 24), "Recogé las cinco piezas y descargalas en el contenedor verde.", subtitle);
 
             int done = crane.deliveryZone.DeliveredCount;
             int total = crane.deliveryZone.requiredCount;
@@ -180,7 +182,7 @@ namespace ScrapCrane
                             crane.magnet.IsOn ? "CAMPO ACTIVO" : "IMÁN APAGADO";
             GUI.Label(new Rect(48, 596, 265, 28), status, new GUIStyle(small) { normal = { textColor = crane.magnet.IsOn ? Orange : Muted } });
 
-            GUI.backgroundColor = crane.magnet.IsOn ? Orange : Color.white;
+            GUI.backgroundColor = crane.magnet.IsOn ? NeutralBackground(Orange) : Color.white;
             if (GUI.Button(new Rect(28, 644, 306, 48), crane.magnet.IsOn ? "SOLTAR CARGA   [ ESPACIO ]" : "ACTIVAR IMÁN   [ ESPACIO ]", button))
                 crane.magnet.Toggle();
             GUI.backgroundColor = Color.white;
@@ -190,7 +192,7 @@ namespace ScrapCrane
             if (settings)
             {
                 Box(new Rect(350, 644, 294, 150), Ink);
-                GUI.Label(new Rect(370, 661, 200, 24), "Potencia de drives", label);
+                GUI.Label(new Rect(370, 661, 200, 24), "Esfuerzo máximo", label);
                 GUI.Label(new Rect(552, 661, 70, 24), crane.Power.ToString("0.0") + "×", value);
                 crane.Power = GUI.HorizontalSlider(new Rect(370, 700, 254, 24), crane.Power, .25f, 1.5f, track, thumb);
                 if (GUI.Button(new Rect(370, 743, 254, 34), crane.DrivesEnabled ? "Desactivar drives" : "Activar drives", button))
@@ -264,9 +266,9 @@ namespace ScrapCrane
             }
             Disc(center, radius + 2f, new Color(.31f, .39f, .43f));
             Disc(center, radius, new Color(.12f, .17f, .22f));
-            Box(new Rect(center.x - 1, center.y - radius + 12, 2, radius * 2 - 24), new Color(.27f, .34f, .38f));
+            Box(new Rect(center.x - 1, center.y - radius + 12, 2, radius * 2 - 24), new Color(.27f, .34f, .38f), preserveColor: true);
             if (!verticalOnly)
-                Box(new Rect(center.x - radius + 12, center.y - 1, radius * 2 - 24, 2), new Color(.27f, .34f, .38f));
+                Box(new Rect(center.x - radius + 12, center.y - 1, radius * 2 - 24, 2), new Color(.27f, .34f, .38f), preserveColor: true);
             Disc(center, 9f, new Color(.3f, .37f, .4f));
             var knob = center + new Vector2(input.x, -input.y) * (radius - 15f);
             Disc(knob, 16f, GUI.enabled ? Orange : Muted);
