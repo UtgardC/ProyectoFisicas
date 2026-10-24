@@ -5,5 +5,3 @@ Simulador de carga de chatarra con Articulation Body. La maniobra consiste en re
 Página de itch.io :  [Itchio](https://utgrom.itch.io/grua-electromagnetica-tp-fisicas)
 - [Video de la maniobra](VIDEO_URL)
 - [Diagrama y explicación del mecanismo](Docs/Mecanismo.pdf) ([fuente](Docs/Mecanismo.md))
-
-En desarrollo. Los enlaces `ITCH_URL` y `VIDEO_URL` se reemplazan antes de entregar. El repositorio se mantiene privado hasta finalizar.
