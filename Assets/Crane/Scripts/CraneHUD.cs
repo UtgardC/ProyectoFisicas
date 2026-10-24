@@ -193,8 +193,8 @@ namespace ScrapCrane
             {
                 Box(new Rect(350, 644, 294, 150), Ink);
                 GUI.Label(new Rect(370, 661, 200, 24), "Esfuerzo máximo", label);
-                GUI.Label(new Rect(552, 661, 70, 24), crane.Power.ToString("0.0") + "×", value);
-                crane.Power = GUI.HorizontalSlider(new Rect(370, 700, 254, 24), crane.Power, .25f, 1.5f, track, thumb);
+                GUI.Label(new Rect(552, 661, 70, 24), crane.Power.ToString("0.00") + "×", value);
+                crane.Power = GUI.HorizontalSlider(new Rect(370, 700, 254, 24), crane.Power, .01f, 3f, track, thumb);
                 if (GUI.Button(new Rect(370, 743, 254, 34), crane.DrivesEnabled ? "Desactivar drives" : "Activar drives", button))
                     crane.DrivesEnabled = !crane.DrivesEnabled;
             }
@@ -266,12 +266,12 @@ namespace ScrapCrane
             }
             Disc(center, radius + 2f, new Color(.31f, .39f, .43f));
             Disc(center, radius, new Color(.12f, .17f, .22f));
-            Box(new Rect(center.x - 1, center.y - radius + 12, 2, radius * 2 - 24), new Color(.27f, .34f, .38f), preserveColor: true);
+            Box(new Rect(center.x - 1, center.y - radius + 12, 2, radius * 2 - 24), new Color(.27f, .34f, .38f));
             if (!verticalOnly)
-                Box(new Rect(center.x - radius + 12, center.y - 1, radius * 2 - 24, 2), new Color(.27f, .34f, .38f), preserveColor: true);
+                Box(new Rect(center.x - radius + 12, center.y - 1, radius * 2 - 24, 2), new Color(.27f, .34f, .38f));
             Disc(center, 9f, new Color(.3f, .37f, .4f));
             var knob = center + new Vector2(input.x, -input.y) * (radius - 15f);
-            Disc(knob, 16f, GUI.enabled ? Orange : Muted);
+            Disc(knob, 16f, GUI.enabled ? Orange : Muted, preserveColor: GUI.enabled);
             return input;
         }
 
@@ -282,9 +282,9 @@ namespace ScrapCrane
             return Vector2.ClampMagnitude(offset, 1f);
         }
 
-        void Disc(Vector2 center, float radius, Color color)
+        void Disc(Vector2 center, float radius, Color color, bool preserveColor = false)
         {
-            GUI.color = color;
+            GUI.color = preserveColor ? color : NeutralBackground(color);
             GUI.DrawTexture(new Rect(center.x - radius, center.y - radius, radius * 2, radius * 2), disc);
             GUI.color = Color.white;
         }
